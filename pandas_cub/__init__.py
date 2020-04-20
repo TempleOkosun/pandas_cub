@@ -370,7 +370,7 @@ class DataFrame:
         -------
         DataFrame
         """
-        pass
+        return self[:n, :]
 
     def tail(self, n=5):
         """
@@ -384,7 +384,7 @@ class DataFrame:
         -------
         DataFrame
         """
-        pass
+        return  self[-n:, :]
 
     #### Aggregation Methods ####
 
@@ -434,7 +434,14 @@ class DataFrame:
         -------
         A DataFrame
         """
-        pass
+        new_data = {}
+        for col, value in self._data.items():
+            try:
+                new_data[col] = np.array([aggfunc(value)])
+            except TypeError:
+                pass
+        return DataFrame(new_data)
+
 
     def isna(self):
         """
@@ -444,7 +451,15 @@ class DataFrame:
         -------
         A DataFrame of booleans the same size as the calling DataFrame
         """
-        pass
+        new_data = {}
+        for col, value in self._data.items():
+            if value.dtype.kind == 'O':
+                new_data[col] = value == None
+
+            else:
+                new_data[col] = np.isnan(value)
+        return DataFrame(new_data)
+
 
     def count(self):
         """
@@ -454,7 +469,12 @@ class DataFrame:
         -------
         A DataFrame
         """
-        pass
+        df = self.isna()
+        new_data = {}
+        length = len(df)
+        for col, value in df._data.items():
+            new_data[col] = np.array([length - value.sum()])
+        return DataFrame(new_data)
 
     def unique(self):
         """
@@ -464,7 +484,15 @@ class DataFrame:
         -------
         A list of one-column DataFrames
         """
-        pass
+        dfs = []
+        for col, value in self._data.items():
+            new_data= {col: np.unique(value)}
+            dfs.append(DataFrame(new_data))
+
+        if len(dfs) == 1:
+            return dfs[0]
+        return dfs
+
 
     def nunique(self):
         """
@@ -474,7 +502,11 @@ class DataFrame:
         -------
         A DataFrame
         """
-        pass
+        new_data = {}
+        for col, value in self._data.items():
+            new_data[col] = np.array([len (np.unique(value))])
+
+        return DataFrame(new_data)
 
     def value_counts(self, normalize=False):
         """
