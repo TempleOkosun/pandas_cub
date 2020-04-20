@@ -1,4 +1,4 @@
-# Build a data Analysis Library from Scratch
+# Build a Data Analysis Library from Scratch
 
 This repository is a project based learning with Ted Petrou to utilize my Python programming skills and develop a library 
 for data analysis similar to pandas. The library will be used for my small and quick data analysis and wrangling needs. 
@@ -24,5 +24,5 @@ The completion of each part of this project is predicated upon passing the
 tests written in the `test_dataframe.py` module inside the `tests` folder.
 
 
-## To be Done
+## To Do
 * Visualizing data by making calls to matplotlib library.

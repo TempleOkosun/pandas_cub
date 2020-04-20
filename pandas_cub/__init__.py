@@ -154,8 +154,8 @@ class DataFrame:
         html = '<table><thead><tr><th></th>'
         for col in self.columns:
             html += f"<th>{col:10}</th>"
-
         html += '</tr></thead>'
+
         html += "<tbody>"
 
         only_head = False
@@ -182,7 +182,7 @@ class DataFrame:
                     html += f'<td>{values[i]:10}</td>'
             html += '</tr>'
 
-        if not only_head:
+        if not only_head:  # i.e len(self) is > 20
             html += '<tr><strong><td>...</td></strong>'
             for i in range(len(self.columns)):
                 html += '<td>...</td>'
@@ -247,19 +247,116 @@ class DataFrame:
         -------
         A subset of the original DataFrame
         """
-        pass
+        if isinstance(item, str):
+            return DataFrame({item: self._data[item]})
+
+        if isinstance(item, list):
+            return DataFrame({col: self._data[col] for col in item})
+
+        if isinstance(item, DataFrame):
+            if item.shape[1] != 1:
+                raise ValueError('item must be a one-column Dataframe')
+            arr = next(iter(item._data.values()))
+            if arr.dtype.kind != 'b':
+                raise ValueError('item must be a one-column boolean Dataframe')
+
+            new_data = ({col: value[arr] for col, value in self._data.items()})
+            return DataFrame(new_data)
+
+        if isinstance(item, tuple):
+            return self._getitem_tuple(item)
+
+        raise TypeError('You must pass either a string, list, DataFrame or tuple to the selection operator')
+
 
     def _getitem_tuple(self, item):
         # simultaneous selection of rows and cols -> df[rs, cs]
-        pass
+        if len(item) != 2:
+            raise ValueError('item tuple must have length 2')
+        row_selection, col_selection = item
+
+        if isinstance(row_selection, int):
+            row_selection = [row_selection]
+        elif isinstance(row_selection, DataFrame):
+            if row_selection.shape[1] != 1:
+                raise ValueError('row selection DataFrame must be one column')
+            row_selection = next(iter(row_selection._data.values()))
+            if row_selection.dtype.kind != 'b':
+                raise TypeError('row selection DataFrame must be a boolean')
+        elif not isinstance(row_selection, (list, slice)):
+            raise TypeError('row selection must be an int, list, slice or DataFrame')
+
+
+
+        if isinstance(col_selection, int):
+            col_selection = [self.columns[col_selection]]
+        elif isinstance(col_selection, str):
+            col_selection = [col_selection]
+        elif isinstance(col_selection, list):
+            new_col_selection = []
+            for col in col_selection:
+                if isinstance(col, int):
+                    new_col_selection.append(self.columns[col])
+                else:
+                    # assuming col is a string
+                    new_col_selection.append(col)
+            col_selection = new_col_selection
+        elif isinstance(col_selection, slice):
+            start = col_selection.start
+            stop = col_selection.stop
+            step = col_selection.step
+
+            if isinstance(start, str):
+                start = self.columns.index(start)
+            if isinstance(stop, str):
+                stop = self.columns.index(stop) + 1
+            col_selection = self.columns[start:stop:step]
+
+        else:
+            raise TypeError('column selection must be int, str, list, or slice')
+
+        new_data = {}
+        for col in col_selection:
+            new_data[col] = self._data[col][row_selection]
+        return DataFrame(new_data)
 
     def _ipython_key_completions_(self):
         # allows for tab completion when doing df['c
-        pass
+        return self.columns
 
     def __setitem__(self, key, value):
         # adds a new column or a overwrites an old column
-        pass
+        if not isinstance(key, str):
+            raise   NotImplementedError('Setting columns is only done with a single column')
+
+        if isinstance(value, np.ndarray):
+            if value.ndim != 1:
+                raise ValueError('The numpy array must be one-dimensional')
+
+            if len(value) != len(self):
+                raise ValueError('Length of setting must match length of Dataframe')
+
+        elif isinstance(value, DataFrame):
+            if value.shape[1] != 1:
+                raise ValueError('Setting DataFrame must be one column')
+
+            if len(value) != len(self):
+                raise ValueError('Setting DataFrame must be of thesame length.')
+            value = next(iter(value._data.values()))
+
+        elif isinstance(value, (int, bool, str, float)):
+            value = np.repeat(value, len(self))
+
+        else:
+            raise TypeError('Setting object must be array, DataFrame, int, string, float or bool')
+
+        if value.dtype.kind == 'U':
+            value = value.astype('object')
+
+        self._data[key] = value
+
+
+
 
     def head(self, n=5):
         """
