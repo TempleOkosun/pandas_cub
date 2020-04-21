@@ -521,7 +521,22 @@ class DataFrame:
         -------
         A list of DataFrames or a single DataFrame if one column
         """
-        pass
+        dfs = []
+        for col, value in self._data.items():
+            uniques, counts = np.unique(value, return_counts=True)
+            order = np.argsort(-counts)
+            uniques = uniques[order]
+            counts = counts[order]
+            if normalize:
+                counts = counts/ len(self)
+            new_data = {col: uniques, 'count': counts}
+            dfs.append(DataFrame (new_data))
+
+        if len(dfs) == 1:
+            return dfs[0]
+        return dfs
+
+
 
     def rename(self, columns):
         """
@@ -536,7 +551,13 @@ class DataFrame:
         -------
         A DataFrame
         """
-        pass
+        if not isinstance(columns, dict):
+            raise TypeError("'columns' must be a dictionary")
+        new_data = {}
+        for col, values in self._data.items():
+            new_data[columns.get(col, col)] = values
+        return DataFrame(new_data)
+
 
     def drop(self, columns):
         """
@@ -550,7 +571,15 @@ class DataFrame:
         -------
         A DataFrame
         """
-        pass
+        if isinstance(columns, str):
+            columns = [columns]
+        elif not isinstance(columns, list):
+            raise TypeError("'columns' must either be a string or a list")
+        new_data = {}
+        for col, values in self._data.items():
+            if col not in columns:
+                new_data[col] = values
+        return DataFrame(new_data)
 
     #### Non-Aggregation Methods ####
 
@@ -563,6 +592,7 @@ class DataFrame:
         A DataFrame
         """
         return self._non_agg(np.abs)
+
 
     def cummin(self):
         """
@@ -643,7 +673,16 @@ class DataFrame:
         -------
         A DataFrame
         """
-        pass
+        new_data = {}
+        for col, value in self._data.items():
+            if value.dtype.kind == 'O':
+                new_data[col] = value.copy()
+
+            else:
+                new_data[col] = funcname(value, **kwargs)
+        return DataFrame(new_data)
+
+
 
     def diff(self, n=1):
         """
@@ -658,8 +697,15 @@ class DataFrame:
         -------
         A DataFrame
         """
-        def func():
-            pass
+        def func(value):
+            value = value.astype('float')
+            value_shifted = np.roll(value, n)
+            value = value - value_shifted
+            if n >= 0:
+                value [:n] = np.nan
+            else:
+                value[n:] = np.nan
+            return value
         return self._non_agg(func)
 
     def pct_change(self, n=1):
@@ -675,8 +721,15 @@ class DataFrame:
         -------
         A DataFrame
         """
-        def func():
-            pass
+        def func(value):
+            value = value.astype('float')
+            value_shifted = np.roll(value, n)
+            value = (value - value_shifted) / value_shifted
+            if n >= 0:
+                value[:n] = np.nan
+            else:
+                value[n:] = np.nan
+            return value
         return self._non_agg(func)
 
     #### Arithmetic and Comparison Operators ####
@@ -748,7 +801,17 @@ class DataFrame:
         -------
         A DataFrame
         """
-        pass
+        if isinstance(other, DataFrame):
+            if not other.shape[1]:
+                raise ValueError('DataFrame must be a single column')
+            else:
+                other = next(iter(other._data.values()))
+
+        new_data = {}
+        for col, value in self._data.items():
+            method = getattr(value, op)
+            new_data[col] = method(other)
+        return DataFrame(new_data)
 
     def sort_values(self, by, asc=True):
         """
@@ -763,7 +826,18 @@ class DataFrame:
         -------
         A DataFrame
         """
-        pass
+        if isinstance(by, str):
+           order = np.argsort( self._data[by])
+        elif isinstance(by, list):
+            by = [self._data[col] for col in by[::-1]]
+            order =  np.lexsort(by)
+        else:
+            raise TypeError("'by' must be either a list or string")
+
+        if not asc:
+            order = order[::-1]
+
+        return self[order.tolist(), :]
 
     def sample(self, n=None, frac=None, replace=False, seed=None):
         """
@@ -784,7 +858,17 @@ class DataFrame:
         -------
         A DataFrame
         """
-        pass
+        if seed:
+            np.random.seed(seed)
+        if frac:
+            if frac <= 0:
+                raise ValueError("'frac' must be positive")
+            n = int(frac * len(self))
+        if not isinstance(n, int):
+            raise TypeError("'n' must be an integer")
+        rows = np.random.choice(range(len(self)), n, replace=replace)
+        return self[rows.tolist(), :]
+
 
     def pivot_table(self, rows=None, columns=None, values=None, aggfunc=None):
         """

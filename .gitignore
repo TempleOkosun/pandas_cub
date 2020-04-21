@@ -6,6 +6,13 @@ __pycache__/
 # C extensions
 *.so
 
+#Folders
+.pandas_cub_final/
+.images/
+
+README.pdf
+Test Notebook.ipynb
+
 .DS_Store
 .idea
 # Distribution / packaging
